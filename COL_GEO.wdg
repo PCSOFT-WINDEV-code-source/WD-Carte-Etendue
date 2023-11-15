@@ -1,0 +1,282 @@
+#To edit and compare internal_properties, use WINDEV integrated tools.
+#Internal properties refer to the properties of controls in windows, reports, etc.
+info :
+ name : COL_GEO
+ major_version : 28
+ minor_version : 0
+ type : 7
+ description : ""
+ subtype : 0
+procedure_set :
+ identifier : 0x1fb527920013cb46
+ internal_properties : CAAAAAgAAABGLu41kG7fjQV3iS4F72qmnKaNh5694reolNKIW0iw
+ code_elements :
+  type_code : 31
+  p_codes :
+   -
+     code : |1-
+      
+      gsClé est une chaine
+     type : 720896
+  procedures :
+   -
+     name : geoRécupèreAdresseEx
+     internal_properties : CAAAAAgAAABP1igsVlVz3ezEsF1FX3+bSH00Org2V5IqivuJTWDGc2JMudOIYXiAIlK9VRlv3XHmLZxX7/L+vOoByLDlApwq+iMnSAmXjjiNHpmpAYlrkfn7xsznive9qsChGKhs54q/b3U7ZFkIbygFZ2zNthYzGgzjwt1PGKB0s/HSbTmXkl5y+eIirr5MAGxLiA6fW6b3vP9vF4Lqz3BtwQWUgmSC35tRRSU+RP5mTLoyDyEObYNu/6qdFBwFEJBYcmqWSYLrs0ot
+     procedure_id : 1171593565692061442
+     type_code : 15
+     code : |1-
+      // Résumé : Récupère une adresse ou une liste d’adresses correspondant à la description d’un lieu géographique.
+      // Syntaxe :
+      //geoRécupèreAdresseEx (<sDescription> est chaîne, <pCallback> est procédure, <nNbAdresses> est entier)
+      //
+      // Paramètres :
+      //	sDescription (chaîne ANSI) : Lieu dont l’adresse doit être récupérée.
+      //	pCallback (procédure) : Nom de la procédure WLangage (également nommée "callback") appelée pour le lieu dont l'adresse doit être récupérée.
+      //	nNbAdresses (entier) : Nombre maximal d’adresses retournées dans la liste. Si ce paramètre n’est pas spécifié, le nombre maximal d’adresses retournées sera de 10.
+      // Valeur de retour :
+      // 	Aucune
+      //
+      procédure geoRécupèreAdresseEx( sDescription est une chaine, local pCallback est une procedure, local nNbAdresses est un entier )
+      
+      	tabAdresses	est un tableau d'Adresses
+      	stAdresse	est un Adresse
+      	stPosition	est une géoPosition
+      	
+      	stReq		est une httpRequête
+      	stReq.URL = "https://maps.googleapis.com/maps/api/geocode/json"
+      	
+      	// Si <sDescription> contient des coordonnées
+      	SI sDescription.VérifieExpressionRégulière( "(\-?[0-9\-]+\.[0-9]+),(\-?[0-9]+\.[0-9]+)", stPosition.Latitude, stPosition.Longitude ) ALORS
+      		
+      		// "Address Lookup" : obtenir l'adresse à partir des coordonnées
+      		stReq.URL += "?latlng=" + stPosition.Latitude+ "," + stPosition.Longitude
+      	SINON
+      		
+      		stReq.URL += "?address=" + sDescription.VersUTF8().URLEncode( encodeURLDepuisUTF8 + encodeURLParamètre )
+      	FIN
+      	
+      	// Clé API
+      	stReq.URL += "&key=" + gsClé
+      		
+      	// Obtient la réponse en asynchrone
+      	stReq.Envoie( __SurRéponseHTTP ) 
+      	
+      	procedure interne __SurRéponseHTTP( stRep est une httpRéponse )
+      		
+      		// Si la réponse est valide
+      		SI stRep.codeetat = 200 ALORS
+      			
+      			// Lecture de la réponse et décodage JSON
+      			geoData est un json = stRep.Contenu
+      			
+      			// Si on a des résultats
+      			SI geoData.results..Existe _ET_ geoData.results..Occurrence > 0 ALORS
+      				
+      				// Parcourt chaque résultat
+      				POUR TOUT geoResult de geoData.results
+      					
+      					// Définit une nouvelle adresse
+      					stAdresse.RAZ()
+      					
+      					// Adresse postale
+      					SI geoResult.address_components..Existe ALORS
+      						
+      						// Parcourt les composantes de l'adresse
+      						POUR TOUT geoCompo de geoResult.address_components
+      							
+      							SI geoCompo.types[ 1 ]..Valeur = "street_number"	ALORS 
+      								stAdresse.Rue = geoCompo.long_name..Valeur
+      								CONTINUER
+      							FIN
+      							
+      							SI geoCompo.types[ 1 ]..Valeur = "route"			ALORS 
+      								stAdresse.Rue += " " + geoCompo.long_name..Valeur
+      								CONTINUER
+      							FIN
+      							
+      							SI geoCompo.types[ 1 ]..Valeur = "postal_code" 	ALORS 
+      								stAdresse.CodePostal = geoCompo.long_name..Valeur
+      								CONTINUER
+      							FIN
+      							
+      							SI geoCompo.types[ 1 ]..Valeur = "country" ALORS 
+      								stAdresse.Pays = geoCompo.long_name..Valeur
+      								CONTINUER
+      							FIN
+      							
+      							SI geoCompo.types[ 1 ]..Valeur = "locality" ALORS 
+      								stAdresse.Ville = geoCompo.long_name..Valeur
+      								CONTINUER
+      							FIN
+      							
+      							SI geoCompo.types[ 1 ]..Valeur = "administrative_area_level_1" ALORS 
+      								stAdresse.Région = geoCompo.long_name..Valeur
+      								CONTINUER
+      							FIN
+      							
+      						FIN
+      					FIN		
+      					
+      					// Position géographique
+      					SI geoResult.geometry..existe ALORS
+      						
+      						stAdresse.Position.Latitude		= geoResult.geometry.location.lat
+      						stAdresse.Position.Longitude	= geoResult.geometry.location.lng
+      					FIN
+      					
+      					// Mémorise l'adresse				
+      					tabAdresses.ajoute( stAdresse )
+      					
+      					// Si on atteint la limite
+      					SI tabAdresses.occurrence >= nNbAdresses ALORS
+      						SORTIR
+      					FIN
+      				FIN
+      			FIN			
+      		FIN
+      		
+      		// Appel de la callback
+      		pCallback( tabAdresses )
+      	fin	
+     type : 458752
+   -
+     name : geoRécupèreAdresseEx
+     internal_properties : CAAAAAgAAACkBvmuC3Tcjd7uLzhXzbPuaLVaJZr34WhFv5rkaDXAjyZf1cmfG6locVLb2SDk5gHUz+Gg2tzL3kkxjnBlRAP2U0HJXj4kyeixurBLeXQZrr0S8Ujblin6CGLH4Jns+cDtYsCDOJ34raILYxt/
+     procedure_id : 1171593565692061442
+     type_code : 15
+     code : |1-
+      // Résumé : Récupère une adresse ou une liste d’adresses correspondant à la description d’un lieu géographique.
+      // Syntaxe :
+      //[ <Résultat> = ] geoRécupèreAdresseEx (<sDescription> est chaîne, <tabAdresses> est tableau [, <nNbAdresses> est entier])
+      //
+      // Paramètres :
+      //	sDescription (chaîne ANSI) : Lieu dont l'adresse doit être récupérée.
+      //	tabAdresses (tableau) : Nom du tableau de variables de type Adresse qui sera rempli avec la liste des adresses correspondant à la position.
+      //	nNbAdresses (entier - valeur par défaut=10) : Nombre maximal d’adresses retournées dans la liste. Si ce paramètre n’est pas spécifié, le nombre maximal d’adresses retournées sera de 10.
+      // Valeur de retour :
+      // 	booléen : // 	Aucune
+      //
+      procédure geoRécupèreAdresseEx( sDescription est une chaine, tabAdresses est un tableau d'Adresses, nNbAdresses est un entier = 10 ) : booléen
+      
+      	tabAdresseLocal est un tableau d'adresses
+      	bTerminé est un booléen < section critique > = faux
+      
+      	// Rebond sur la procédure à callback
+      	geoRécupèreAdresseEx( sDescription, __SurAdresseRécupérée, nNbAdresses )
+      	
+      	procedure interne __SurAdresseRécupérée( tabAdressesEx est un tableau d'adresses )
+      		
+      		// Recopie les adresses en local
+      		tabAdresseLocal <= tabAdressesEx	
+      		bTerminé = vrai	
+      	FIN
+      
+      	boucle
+      		si bTerminé = vrai alors sortir
+      		Temporisation( 0, tempoTimer )
+      	FIN
+      	
+      	// Recopie les adresses récupérées
+      	tabAdresses <= tabAdresseLocal
+      
+      renvoyer ( tabAdresses.vide = faux )
+     type : 458753
+   -
+     name : geoRécupèreAdresseEx
+     procedure_id : 1171593565692061442
+     type_code : 15
+     code : |1-
+      // Résumé : Récupère une adresse ou une liste d’adresses correspondant à la description d’un lieu géographique.
+      // Syntaxe :
+      //[ <Résultat> = ] geoRécupèreAdresseEx (<sDescription> est chaîne)
+      //
+      // Paramètres :
+      //	sDescription (chaîne ANSI) : Lieu dont l’adresse doit être récupérée.
+      // Valeur de retour :
+      // 	Adresse : // 	Aucune
+      //
+      procédure geoRécupèreAdresseEx( sDescription est une chaine ) : adresse
+      
+      	stAdresse est une adresse
+      	tabAdresses est un tableau d'Adresses
+      	
+      	// Récupère une seule adresse
+      	si geoRécupèreAdresseEx( sDescription, tabAdresses, 1 ) = vrai ALORS
+      		
+      		// Recopie la première adresse
+      		stAdresse <= tabAdresses[ 1 ]
+      	sinon
+      		
+      		// Propage l'erreur éventuelle
+      		ErreurPropage()
+      	FIN
+      	
+      renvoyer stAdresse
+     type : 458754
+   -
+     name : CarteLicenceGgl
+     internal_properties : CAAAAAgAAAArUdJE45cjonSg7ZQy5PQHf37pZp1wGCigb8gJOC6PZL4pZBczjAn7nXI9fs6eLYkeTTziNfmPa1SgGtRFdwrxGD5HaCZUoqcI2bAYCIKlu7+v/ovltDkvLbcjri+f59vosQH3e9Zh7G9Jiau6GRXfdDyEFyqRDGrst0XQJYaG0VUXf78R/xM/9Oxo+gCQ2ounRNgzapAXCU9vgbzd9v32ul4yZdy9SVaCdVTe56Lgp2AtYlLA7ZuuRXBBFEYDeWeCNcAv2EqPrlF35+/7huOcOhy98jk8ZEOuPzutUpX5svekqA==
+     procedure_id : 2284778337816967553
+     type_code : 15
+     code : |1-
+      // Résumé : Indique la clé de licence "Google Maps API" à utiliser dans les champs Carte
+      // Syntaxe :
+      //CarteLicenceGgl (<sClé> est chaîne)
+      //
+      // Paramètres :
+      //	sClé (chaîne ANSI) : Clé fournie par Google.
+      // Valeur de retour :
+      // 	Aucune
+      //
+      procédure CarteLicenceGgl( sClé est une chaine)
+      	
+      	// Mémorise la clé
+      	gsclé = sClé
+      	
+      	// Rebond WL
+      	wl.CarteLicenceGgl( sClé )
+      	
+      	si sClé = "" ou sClé [= "<" ALORS
+      		SI EnModeTest OU EnModeSimulateur ou EnModeiOS ALORS
+      			Info( "Pensez à renseigner la clé Google Maps API pour utiliser cet exemple" )
+      		FIN			
+      	FIN
+     type : 458752
+   -
+     name : geoPositionDéplace
+     procedure_id : 1398689489019077323
+     type_code : 15
+     code : |1+
+      // Résumé : Déplace une position en kilomètres
+      // Syntaxe :
+      //[ <Résultat> = ] geoPositionDéplace (<stPosition> est géoPosition [, <rDéplacementLatitude> est réel [, <rDéplacementLongitude> est réel]])
+      //
+      // Paramètres :
+      //	stPosition (géoPosition) : Position initiale
+      //	rDéplacementLatitude (réel - valeur par défaut=0) : Déplacement en kilomètres sur la latitude ( positif : déplacement vers le nord, négatif : déplacement vers le sud )
+      //	rDéplacementLongitude (réel - valeur par défaut=0) : Déplacement en kilomètres sur la longitude ( positif : déplacement vers l'ouest, négatif : déplacement vers l'est )
+      
+      // Valeur de retour :
+      // 	géoPosition : Nouvelle position
+      //
+      procédure geoPositionDéplace( stPosition est une géoPosition, rDéplacementLatitude est un réel = 0, rDéplacementLongitude est un réel = 0 ) : geoposition
+      
+      	stNouvellePosition est une géoPosition
+      
+      	// le rayon de la Terre est d'environ 6 378	
+      	stNouvellePosition.Latitude  = stPosition.Latitude + ( rDéplacementLatitude / 6 378 ) * ( 180 / valpi )
+      	stNouvellePosition.Longitude = stPosition.Longitude + ( rDéplacementLongitude / 6 378 ) * ( 180 / valpi ) / Cos( stPosition.Latitude * valpi / 180 )
+      	
+      renvoyer stNouvellePosition
+     type : 458752
+  procedure_templates : []
+  property_templates : []
+ code_parameters :
+  internal_properties : CAAAAAgAAACVGQgYbalU7DKC3oH4ItDrjtcTHXXV/EuH8q0IbhyQlw==
+  original_name : COL_SansNom1
+resources :
+ string_res :
+  identifier : 0x1fb5278d0011b6b5
+  internal_properties : CAAAAAgAAACm76HWfKGWp33VjXInA4cRlqArlgTTA862QGt72W2ld5Y=
+custom_note :
+ internal_properties : CAAAAAgAAABtB9HWVzrXO2+4NDRVK0vmzaNKrCKqH1DBX30lMmGZ
